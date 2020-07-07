@@ -1,0 +1,199 @@
+; first rule is top rule:
+
+js-card = {
+  metadata-properties,
+  name-and-organization,
+  contact-and-resources,
+  address-and-location,
+  additional-properties,
+}
+
+; js-card-group is unused in the current spec, as the example
+;   was a js-card and not a js-card-group.
+js-card-group = [ + {
+  uid: uuid,
+  ? name: text,
+  cards: [ + js-card ],
+} ]
+
+;;; Some basic types that are used throughout
+
+uuid = text; URI or free-form
+
+localized-string = {
+  value: text,
+  ? language: rfc5646-tag
+  ? localizations: { * rfc5646-tag => text }
+}
+
+rfc5646-tag = text              ; Could add appropriate regexp here
+
+vendor-specific = text .regexp
+  "[-A-Za-z0-9]+(\.[-A-Za-z0-9]+)+/[-A-Za-z0-9]+" ; check!
+
+Set<T> = { * T => true }
+
+;;; Contents of js-card
+
+metadata-properties = (
+  uid: uuid,
+  ? prodId: text,
+  ? updated: date-time,
+  ? kind: $kind-type-value,
+  ? relatedTo: { * uri-or-value => {
+      relation: Set<$related-type-value>
+    }},
+)
+
+date-time = text                ; RFC 3339, which production?
+
+$kind-type-value /= "individual"
+$kind-type-value /= "organization"
+$kind-type-value /= "location"
+$kind-type-value /= "device"
+$kind-type-value /= "application"
+$kind-type-value /= vendor-specific
+; possibly extend in future RFCs:
+;   $kind-type-value /= text .feature "kind-type-value"
+; should be last!
+
+uri-or-value = text             ; "URI (or single text value)"
+
+; from RFC 6350, $ added
+; Note that the RFC 6350 alternatives are all case-insensitive.
+; Here they are case-sensitive.
+$related-type-value = "contact" / "acquaintance" / "friend" / "met"
+                    / "co-worker" / "colleague" / "co-resident"
+                    / "neighbor" / "child" / "parent"
+                    / "sibling" / "spouse" / "kin" / "muse"
+                    / "crush" / "date" / "sweetheart" / "me"
+                    / "agent" / "emergency"
+$related-type-value /= vendor-specific
+
+; ---------------------------------
+
+name-and-organization = (
+  ? fullName: localized-string,
+  ? name: [* {
+       value: text,
+       type: name-component-type,
+    } ],
+  ? organization: [ + localized-string ], ; and o. units
+  ? jobTitle: [ + localized-string ],
+  ? role: [ + localized-string ],
+)
+
+name-component-type = "prefix" / "personal" / "surname"
+                    / "additional" / "suffix" / "nickname"
+
+; ---------------------------------
+
+contact-and-resources = (
+  ? emails: [ + Resource<$emails-type-value> ],
+  ? phones: [ + Resource<$phones-type-value> ],
+  ? online: [ + Resource<$online-type-value> ],
+  ? preferredContactMethod: $preferred-contact-method-type-value,
+  ? preferredContactLanguages: { * rfc5646-tag =>
+         [ * contact-language ] }
+)
+
+$emails-type-value /= "email"
+$emails-type-value /= "other"
+
+$phones-type-value /= "voice"
+$phones-type-value /= "fax"
+$phones-type-value /= "pager"
+$phones-type-value /= "other"
+
+$online-type-value /= "uri"
+$online-type-value /= "username"
+$online-type-value /= "other"
+
+$preferred-contact-method-type-value /= "emails"
+$preferred-contact-method-type-value /= "phones"
+$preferred-contact-method-type-value /= "online"
+$preferred-contact-method-type-value /= "other"
+
+; must not be empty
+;  [there are probably a lot more of these constraints]
+contact-language = {
+  ? type: $context-type-value, ; stolen from address, instead of
+          ; "This could be "work", "home" or another value."
+  ? preference: 1..100, ; integer only
+}
+
+Resource<Type-value> = {
+  ? context: $resource-context-value
+  ? type: Type-value
+  ? labels: Set<text>
+  ? value: text
+  ? mediaType: media-type
+  ? isPreferred: bool
+}
+
+; is this different from $context-type-value?
+$resource-context-value /= "private"
+$resource-context-value /= "work"
+$resource-context-value /= "other"
+$resource-context-value /= vendor-specific
+
+media-type = text               ; Could add appropriate regexp here
+
+; ---------------------------------
+
+address-and-location = (
+  ? addresses: [ + address ]
+)
+
+address = {
+  ? context: $context-type-value,
+  ? label: text,
+  ? fullAddress: localized-string,
+  ? street: text,
+  ? extension: text,
+  ? locality: text,
+  ? region: text,
+  ? country: text,
+  ? postOfficeBox: text,
+  ? postcode: text,
+  ? countryCode: text,
+  ? coordinates: text,
+  ? timeZone: text,
+  ? isPreferred: bool,
+}
+
+$context-type-value /= "private"
+$context-type-value /= "work"
+$context-type-value /= "billing"
+$context-type-value /= "postal"
+$context-type-value /= "other"
+$context-type-value /= vendor-specific
+
+; ---------------------------------
+
+additional-properties = (
+  ? anniversaries: [ + {
+      type: $anniversary-type-value,
+      ? label: text,
+      date: text,
+      ? place: address,
+    } ],
+  ? personalInfo: [ + {
+      type: $personal-info-type-value,
+      value: text,
+      ? level: text,
+    } ],
+  ? notes: localized-string,
+  ? categories: [* text],
+)
+
+$anniversary-type-value /= "birth"
+$anniversary-type-value /= "death"
+$anniversary-type-value /= "other"
+
+$personal-info-type-value /= "expertise"
+$personal-info-type-value /= "hobby"
+$personal-info-type-value /= "interest"
+$personal-info-type-value /= "other"
+
+; jscontact.cddl -- Carsten Bormann, 2020-07-07
